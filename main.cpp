@@ -187,8 +187,7 @@ int main(int argc, char *argv[])
                 const Lift lift {secondItem, supportAB / (supportA * supportB)};
                 lifts << lift;
 
-                //if (!itempairNameToSupport.contains(firstItem + ":" + secondItem) && !itempairNameToSupport.contains(secondItem + ":" + firstItem))
-                    itempairNameToSupport.insert(firstItem + ":" + secondItem, supportAB);
+                itempairNameToSupport.insert(firstItem + ":" + secondItem, supportAB);
             }
 
             nameToConfidences.insert(firstItem, confidences);
