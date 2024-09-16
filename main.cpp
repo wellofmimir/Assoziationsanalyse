@@ -230,9 +230,20 @@ int main(int argc, char *argv[])
 
         }(nameToConfidences);
 
-        const QJsonObject supports = [](const QMap<QString, qreal> &itempairNameToSupport, const QSet<QString> &items) -> QJsonObject
+        const QJsonObject supports = [](const QMap<QString, qreal> &nameToSupport) -> QJsonObject
         {
             QJsonObject supports;
+
+            for (const QString &name : nameToSupport.keys())
+                supports.insert(name, nameToSupport.value(name));
+
+            return supports;
+
+        }(itemToSupport);
+
+        const QJsonObject supportsBetweenItems = [](const QMap<QString, qreal> &itempairNameToSupport, const QSet<QString> &items) -> QJsonObject
+        {
+            QJsonObject supportsBetweenItems;
 
             for (const QString &itempairName : itempairNameToSupport.keys())
             {
@@ -246,10 +257,10 @@ int main(int argc, char *argv[])
                         jsonArray.append(QJsonObject{{item, itempairNameToSupport.value(firstItemName + ":" + item)}});
                 }
 
-                supports.insert(firstItemName, jsonArray);
+                supportsBetweenItems.insert(firstItemName, jsonArray);
             }
 
-            return supports;
+            return supportsBetweenItems;
 
         }(itempairNameToSupport, items);
 
@@ -259,9 +270,10 @@ int main(int argc, char *argv[])
             {
                 QJsonObject
                 {
-                    {"Confidences", confidences},
-                    {"Lifts",       lifts},
-                    {"Supports",    supports}
+                    {"Confidences",         confidences},
+                    {"Lifts",               lifts},
+                    {"Supports",            supports},
+                    {"Supportrelations",    supportsBetweenItems}
                 }
             };
         });
