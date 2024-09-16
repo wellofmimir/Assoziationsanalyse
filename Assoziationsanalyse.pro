@@ -1,4 +1,4 @@
-QT = core
+QT += core httpserver
 
 CONFIG += c++17 cmdline
 
