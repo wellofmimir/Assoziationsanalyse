@@ -23,6 +23,8 @@
 #include <QtHttpServer>
 #include <QHostAddress>
 
+#include <QCryptographicHash>
+
 struct Confidence
 {
     QString name;
@@ -35,6 +37,8 @@ struct Lift
     double lift;
 };
 
+const QByteArray rapidApiKey {"89f06b7e3da6ddb749650f874be57bbacc4e5f3d7e0e155f6abd50501dc2485fb83fe401b2e33888a38008f5138ef01150471a458f10a6bbf38dd498e7026839"};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app {argc, argv};
@@ -43,18 +47,79 @@ int main(int argc, char *argv[])
 
     const QScopedPointer<QHttpServer> httpServer {new QHttpServer {&app}};
 
-    httpServer->route("/associationanalysis", QHttpServerRequest::Method::Get     |
-                                              QHttpServerRequest::Method::Put     |
-                                              QHttpServerRequest::Method::Head    |
-                                              QHttpServerRequest::Method::Trace   |
-                                              QHttpServerRequest::Method::Patch   |
-                                              QHttpServerRequest::Method::Delete  |
-                                              QHttpServerRequest::Method::Options |
-                                              QHttpServerRequest::Method::Connect |
-                                              QHttpServerRequest::Method::Unknown,
+    httpServer->route("/ping", QHttpServerRequest::Method::Get,
     [](const QHttpServerRequest &request) -> QFuture<QHttpServerResponse>
     {
-        Q_UNUSED(request)
+        qDebug() << "Ping verarbeitet";
+
+        const bool requestIsFromRapidAPI = [](const QHttpServerRequest &request) -> bool
+        {
+            for (const QPair<QByteArray, QByteArray> &header : request.headers())
+                if (header.first == "X-RapidAPI-Proxy-Secret" && QCryptographicHash::hash(header.second, QCryptographicHash::Sha512).toHex() == rapidApiKey)
+                    return true;
+
+            return false;
+
+        }(request);
+
+        if (!requestIsFromRapidAPI)
+            return QtConcurrent::run([]()
+            {
+                return QHttpServerResponse
+                {
+                    QJsonObject
+                    {
+                        {"Message", "HTTP-Requests allowed only via RapidAPI-Gateway."}
+                    }
+                };
+            });
+
+        return QtConcurrent::run([]()
+        {
+            return QHttpServerResponse
+            {
+                QJsonObject
+                {
+                    {"Message", "pong"}
+                }
+            };
+        });
+    });
+
+    httpServer->route("/shoppingcartanalysis", QHttpServerRequest::Method::Get    |
+                                               QHttpServerRequest::Method::Put     |
+                                               QHttpServerRequest::Method::Head    |
+                                               QHttpServerRequest::Method::Trace   |
+                                               QHttpServerRequest::Method::Patch   |
+                                               QHttpServerRequest::Method::Delete  |
+                                               QHttpServerRequest::Method::Options |
+                                               QHttpServerRequest::Method::Connect |
+                                               QHttpServerRequest::Method::Unknown,
+    [](const QHttpServerRequest &request) -> QFuture<QHttpServerResponse>
+    {
+        const bool requestIsFromRapidAPI = [](const QHttpServerRequest &request) -> bool
+        {
+            for (const QPair<QByteArray, QByteArray> &header : request.headers())
+            {
+                if (header.first == "X-RapidAPI-Proxy-Secret" && QCryptographicHash::hash(header.second, QCryptographicHash::Sha512) == rapidApiKey)
+                    return true;
+            }
+
+            return false;
+
+        }(request);
+
+        if (!requestIsFromRapidAPI)
+            return QtConcurrent::run([]()
+            {
+                return QHttpServerResponse
+                {
+                    QJsonObject
+                    {
+                        {"Message", "HTTP-Requests allowed only via RapidAPI-Gateway."}
+                    }
+                };
+            });
 
         return QtConcurrent::run([]()
         {
@@ -68,9 +133,35 @@ int main(int argc, char *argv[])
         });
     });
 
-    httpServer->route("/associationanalysis", QHttpServerRequest::Method::Post,
+    httpServer->route("/shoppingcartanalysis", QHttpServerRequest::Method::Post,
     [](const QHttpServerRequest &request) -> QFuture<QHttpServerResponse>
     {
+        qDebug() << "Anfrage von IP: " << request.remoteAddress().toString();
+
+        const bool requestIsFromRapidAPI = [](const QHttpServerRequest &request) -> bool
+        {
+            for (const QPair<QByteArray, QByteArray> &header : request.headers())
+            {
+                if (header.first == "X-RapidAPI-Proxy-Secret" && QCryptographicHash::hash(header.second, QCryptographicHash::Sha512) == rapidApiKey)
+                    return true;
+            }
+
+            return false;
+
+        }(request);
+
+        if (!requestIsFromRapidAPI)
+            return QtConcurrent::run([]()
+            {
+                return QHttpServerResponse
+                {
+                    QJsonObject
+                    {
+                        {"Message", "HTTP-Requests allowed only via RapidAPI-Gateway."}
+                    }
+                };
+            });
+
         if (request.body().isEmpty())
             return QtConcurrent::run([]()
             {
@@ -279,7 +370,7 @@ int main(int argc, char *argv[])
         });
     });
 
-    if (httpServer->listen(QHostAddress::LocalHost, static_cast<quint16>(PORT)) == 0)
+    if (httpServer->listen(QHostAddress::Any, static_cast<quint16>(PORT)) == 0)
         return -1;
 
     return app.exec();
