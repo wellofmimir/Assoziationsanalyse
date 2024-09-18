@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app {argc, argv};
 
-    const quint16 PORT {50000};
+    const quint16 PORT {80};
 
     const QScopedPointer<QHttpServer> httpServer {new QHttpServer {&app}};
 
